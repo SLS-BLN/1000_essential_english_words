@@ -7,11 +7,16 @@ PRESSED_COLOR = "#9FC7B1"
 # ---------------------------- DATA ------------------------------- #
 df = pd.read_csv('data/english_words.csv')  # file uses "word;translation" in one column
 
-def get_random_word():
-    random_row = df.sample(n=1)
-    word = random_row.iloc[0, 0].split(';')[0]
-    translation = random_row.iloc[0, 0].split(';')[1]
-    return [word, translation]
+if 'word' not in df.columns or 'translation' not in df.columns:
+    df[['word', 'translation']] = df.iloc[:, 0].str.split(';', n=1, expand=True)
+    print(df)
+
+def get_random_word() -> list[str]:
+    """Return a random [word, translation] pair as a list."""
+    row = df.sample(1).iloc[0]
+    return [str(row["word"]).strip(), str(row["translation"]).strip()]
+
+
 
 # ---------------------------- UI ------------------------------- #
 window = tk.Tk()
