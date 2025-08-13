@@ -7,7 +7,8 @@ PRESSED_COLOR = "#9FC7B1"
 FLIP_DELAY_MS = 3000
 TITLE_TAG = "card_title"
 WORD_TAG = "card_word"
-
+_flip_timer_id = None
+_flip_token = 0  # increments for each new card shown
 
 # ---------------------------- DATA ------------------------------- #
 df = pd.read_csv('data/english_words.csv')  # file uses "word;translation" in one column
@@ -39,8 +40,6 @@ word_text_id = canvas.create_text(400, 263, text="", font=("Arial", 60, "bold"),
 
 canvas.itemconfig(title_text_id, tags=(TITLE_TAG,))
 canvas.itemconfig(word_text_id, tags=(WORD_TAG,))
-
-
 canvas.grid(row=0, column=0, columnspan=2, pady=20)
 
 def button_press(button):
@@ -48,19 +47,46 @@ def button_press(button):
     window.after(100, lambda: button.config(bg=BACKGROUND_COLOR))
 
 def show_new_word():
+    global _flip_timer_id, _flip_token
     new_word = get_random_word()
+
+    # Display random word on screen
     word_to_translate = new_word[0]
     word_translation = new_word[1]
+
+    # Cancel any pending flip from previous presses
+    if _flip_timer_id is not None:
+        try:
+            window.after_cancel(_flip_timer_id)
+        except Exception:
+            pass
+        _flip_timer_id = None
+
+    # Bump the token to invalidate older scheduled flips
+    _flip_token += 1
+    token = _flip_token
+
+    # Show front
     canvas.itemconfig(card_image_id, image=card_front_image)
-    canvas.itemconfig(TITLE_TAG, text="English Word")
-    canvas.itemconfig(WORD_TAG, text=word_to_translate)
-    window.after(FLIP_DELAY_MS, lambda: flip_card(word_translation))
+    canvas.itemconfig(TITLE_TAG, text="English Word", fill="black")
+    canvas.itemconfig(WORD_TAG, text=word_to_translate, fill="black")
 
-def flip_card(translation):
+    # Schedule flip for this specific token
+    _flip_timer_id = window.after(
+        FLIP_DELAY_MS,
+        lambda t=word_translation, tok=token: flip_card(t, tok)
+    )
+
+def flip_card(translation: str, token: int):
+    global _flip_timer_id, _flip_token
+    # Ignore stale flips
+    if token != _flip_token:
+        return
+
+    _flip_timer_id = None
     canvas.itemconfig(card_image_id, image=card_back_image)
-    canvas.itemconfig(TITLE_TAG, text="Translation")
-    canvas.itemconfig(WORD_TAG, text=translation)
-
+    canvas.itemconfig(TITLE_TAG, text="Translation", fill="white")
+    canvas.itemconfig(WORD_TAG, text=translation, fill="white")
 
 wrong_image = tk.PhotoImage(file="./images/wrong.png")
 wrong_button = tk.Button(
@@ -85,5 +111,6 @@ ok_button.grid(row=1, column=1)
 
 # Show an initial word
 show_new_word()
+
 
 window.mainloop()
