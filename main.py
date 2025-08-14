@@ -1,6 +1,5 @@
 import tkinter as tk
 import pandas as pd
-import time
 
 BACKGROUND_COLOR = "#B1DDC6"
 PRESSED_COLOR = "#9FC7B1"
@@ -11,17 +10,36 @@ _flip_timer_id = None
 _flip_token = 0  # increments for each new card shown
 
 # ---------------------------- DATA ------------------------------- #
-df = pd.read_csv('data/english_words.csv')  # file uses "word;translation" in one column
+# english_words should not be changed - this is just a reference
+# english_words_to is a copy of english_words and can be changed
+# english_words_to_repeat contains a list of words the user doesn't know yet
+
+# TODO: check if words_to_repeat exists and contains more than 20 words
+#   if this the case use the file
+#   else chose words_to_learn
+df = pd.read_csv('data/english_words_to_learn.csv')  # file uses "word;translation" in one column
 
 if 'word' not in df.columns or 'translation' not in df.columns:
     df[['word', 'translation']] = df.iloc[:, 0].str.split(';', n=1, expand=True)
     print(df)
 
-def get_random_word() -> list[str]:
+def get_random_word() -> None:
     """Return a random [word, translation] pair as a list."""
+    global current_word
     row = df.sample(1).iloc[0]
-    word_pair = [str(row["word"]).strip(), str(row["translation"]).strip()]
-    return word_pair
+    word_to_translate = str(row["word"]).strip()
+    word_translation = str(row["translation"]).strip()
+    current_word = [word_to_translate, word_translation]
+
+def learn_again():
+    """Save the current word to the list of words to learn."""
+    global current_word
+    if not current_word:
+        return
+    word_to_translate, word_translation = current_word
+    print(word_to_translate, word_translation)
+    # save both in the list english_words_to_repeat
+
 
 # ---------------------------- UI ------------------------------- #
 window = tk.Tk()
@@ -47,12 +65,12 @@ def button_press(button):
     window.after(100, lambda: button.config(bg=BACKGROUND_COLOR))
 
 def show_new_word():
-    global _flip_timer_id, _flip_token
-    new_word = get_random_word()
+    global _flip_timer_id, _flip_token, current_word
+    get_random_word()
+    if not current_word:
+        return
 
-    # Display random word on screen
-    word_to_translate = new_word[0]
-    word_translation = new_word[1]
+    word_to_translate, word_translation = current_word
 
     # Cancel any pending flip from previous presses
     if _flip_timer_id is not None:
@@ -93,7 +111,8 @@ wrong_button = tk.Button(
     image=wrong_image,
     highlightthickness=0,
     bg=BACKGROUND_COLOR,
-    borderwidth=0
+    borderwidth=0,
+    command=learn_again
 )
 wrong_button.bind('<Button-1>', lambda e: button_press(wrong_button))
 wrong_button.grid(row=1, column=0)
