@@ -1,30 +1,42 @@
 import tkinter as tk
 import pandas as pd
+from pathlib import Path
+
 
 BACKGROUND_COLOR = "#B1DDC6"
 PRESSED_COLOR = "#9FC7B1"
 FLIP_DELAY_MS = 3000
 TITLE_TAG = "card_title"
 WORD_TAG = "card_word"
+MINIMUM_WORDS_TO_LEARN = 20
 _flip_timer_id = None
 _flip_token = 0  # increments for each new card shown
 
+# TODO: avoid state to be set in a global variable
+#   - better solution would be to encapsulate state in a class
+#   - tuple used to prevent accidental mutation
+current_word: tuple[str, str] | None = None
+
+
 # ---------------------------- DATA ------------------------------- #
-# english_words should not be changed - this is just a reference
-# english_words_to is a copy of english_words and can be changed
-# english_words_to_repeat contains a list of words the user doesn't know yet
+def select_word_list():
+    """Select the list of words to learn or repeat."""
+    global df
+    pathname = Path("data/english_words_to_repeat.csv")
+    if pathname.is_file() and (tmp := pd.read_csv(pathname)).shape[0] > MINIMUM_WORDS_TO_LEARN:
+        df = pd.read_csv('data/english_words_to_repeat.csv')
+        print("repeat")
+    else:
+        df = pd.read_csv('data/english_words_to_learn.csv')
+        print("learn")
+    if 'word' not in df.columns or 'translation' not in df.columns:
+        df[['word', 'translation']] = df.iloc[:, 0].str.split(';', n=1, expand=True)
+        print(df)
 
-# TODO: check if words_to_repeat exists and contains more than 20 words
-#   if this the case use the file
-#   else chose words_to_learn
-df = pd.read_csv('data/english_words_to_learn.csv')  # file uses "word;translation" in one column
-
-if 'word' not in df.columns or 'translation' not in df.columns:
-    df[['word', 'translation']] = df.iloc[:, 0].str.split(';', n=1, expand=True)
-    print(df)
 
 def get_random_word() -> None:
     """Return a random [word, translation] pair as a list."""
+    select_word_list()
     global current_word
     row = df.sample(1).iloc[0]
     word_to_translate = str(row["word"]).strip()
@@ -36,9 +48,9 @@ def learn_again():
     global current_word
     if not current_word:
         return
-    word_to_translate, word_translation = current_word
-    print(word_to_translate, word_translation)
-    # save both in the list english_words_to_repeat
+    with open('data/english_words_to_repeat.csv', 'a') as file:
+        file.write(f'{current_word[0]};{current_word[1]}\n')
+    show_new_word()
 
 
 # ---------------------------- UI ------------------------------- #
@@ -94,6 +106,11 @@ def show_new_word():
         FLIP_DELAY_MS,
         lambda t=word_translation, tok=token: flip_card(t, tok)
     )
+
+    # TODO: if df = repeat -> remove word from word_to_repeat file
+    #   check df
+    #   remove from repeat_file
+    #   add to learn_file
 
 def flip_card(translation: str, token: int):
     global _flip_timer_id, _flip_token
